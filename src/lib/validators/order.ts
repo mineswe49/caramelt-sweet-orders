@@ -2,7 +2,8 @@ import { z } from "zod";
 import { addDays, startOfDay } from "date-fns";
 import { MIN_PREP_DAYS } from "@/lib/constants";
 
-export const checkoutSchema = z.object({
+// Form validation schema (without items - those come from cart store)
+export const checkoutFormSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
@@ -16,6 +17,12 @@ export const checkoutSchema = z.object({
   ),
   notes: z.string().optional(),
   paymentMethod: z.enum(["cash", "manual_transfer"]),
+});
+
+export type CheckoutFormData = z.infer<typeof checkoutFormSchema>;
+
+// Full validation schema (with items for API)
+export const checkoutSchema = checkoutFormSchema.extend({
   items: z
     .array(
       z.object({
@@ -25,8 +32,6 @@ export const checkoutSchema = z.object({
     )
     .min(1, "Cart cannot be empty"),
 });
-
-export type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 export const trackOrderSchema = z.object({
   orderCode: z.string().min(1, "Order code is required"),

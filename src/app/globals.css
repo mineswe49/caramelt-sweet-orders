@@ -27,6 +27,13 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   background: #FFFBF8;
   color: #1a1a1a;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ramadan Mode Styles - Same color schema */
+html[data-ramadan="true"] body {
+  background: linear-gradient(135deg, #EB7333 0%, #E73B6C 50%, #E85354 100%);
+  background-attachment: fixed;
 }
 
 /* Custom scrollbar */

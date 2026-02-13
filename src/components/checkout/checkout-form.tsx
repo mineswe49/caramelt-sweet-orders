@@ -5,9 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { Banknote, CreditCard, ShoppingBag } from "lucide-react";
+import { CreditCard, ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
-import { checkoutSchema, type CheckoutFormData } from "@/lib/validators/order";
+import { checkoutFormSchema, checkoutSchema, type CheckoutFormData } from "@/lib/validators/order";
 import { formatPrice } from "@/lib/format";
 import Button from "@/components/ui/button";
 import Input, { Textarea } from "@/components/ui/input";
@@ -32,9 +32,9 @@ export default function CheckoutForm() {
     formState: { errors },
     watch,
   } = useForm<CheckoutFormData>({
-    resolver: zodResolver(checkoutSchema),
+    resolver: zodResolver(checkoutFormSchema),
     defaultValues: {
-      paymentMethod: "cash",
+      paymentMethod: "manual_transfer",
       requestedPrepDate: minDate,
     },
   });
@@ -58,18 +58,24 @@ export default function CheckoutForm() {
         })),
       };
 
+      console.log("Submitting order:", payload);
+
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
+      console.log("Response status:", response.status);
+
+      const responseData = await response.json();
+      console.log("Response data:", responseData);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create order");
+        throw new Error(responseData.message || "Failed to create order");
       }
 
-      const { orderCode } = await response.json();
+      const { orderCode } = responseData;
 
       // Clear cart and close drawer
       clearCart();
@@ -79,7 +85,8 @@ export default function CheckoutForm() {
       router.push(`/order-success/${orderCode}`);
     } catch (error) {
       console.error("Checkout error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to place order");
+      const errorMessage = error instanceof Error ? error.message : "Failed to place order";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -115,7 +122,19 @@ export default function CheckoutForm() {
         <Card className="p-6 lg:p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Checkout Details</h2>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+            {/* Form Validation Errors */}
+            {Object.keys(errors).length > 0 && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm font-semibold text-red-800 mb-2">Please fix the following errors:</p>
+                <ul className="text-sm text-red-700 space-y-1">
+                  {Object.entries(errors).map(([key, error]) => (
+                    <li key={key}>• {error?.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Contact Information */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
@@ -184,38 +203,7 @@ export default function CheckoutForm() {
             {/* Payment Method */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Cash on Delivery */}
-                <label className="relative cursor-pointer">
-                  <input
-                    type="radio"
-                    value="cash"
-                    {...register("paymentMethod")}
-                    className="sr-only peer"
-                  />
-                  <div
-                    className={`p-6 rounded-2xl border-2 transition-all ${
-                      selectedPaymentMethod === "cash"
-                        ? "border-primary bg-primary/5 shadow-md"
-                        : "border-gray-200 hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center text-center gap-3">
-                      <Banknote
-                        className={`w-10 h-10 ${
-                          selectedPaymentMethod === "cash"
-                            ? "text-primary"
-                            : "text-gray-400"
-                        }`}
-                      />
-                      <div>
-                        <p className="font-semibold text-gray-900">Cash on Delivery</p>
-                        <p className="text-sm text-gray-500 mt-1">Pay when you receive</p>
-                      </div>
-                    </div>
-                  </div>
-                </label>
-
+              <div className="grid grid-cols-1 gap-4">
                 {/* Manual Bank Transfer */}
                 <label className="relative cursor-pointer">
                   <input

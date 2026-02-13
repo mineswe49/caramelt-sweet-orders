@@ -1,5 +1,5 @@
 export function formatPrice(amount: number): string {
-  return `EGP ${amount.toFixed(2)}`;
+  return `${amount.toFixed(2)} EGP`;
 }
 
 export function formatDate(date: string | Date): string {
