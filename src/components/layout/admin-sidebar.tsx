@@ -29,6 +29,11 @@ export default function AdminSidebar() {
       icon: LayoutDashboard,
     },
     {
+      name: "Products",
+      href: "/admin/dashboard/products",
+      icon: ShoppingBag,
+    },
+    {
       name: "Orders",
       href: "/admin/dashboard/all-orders",
       icon: Package,

@@ -8,16 +8,19 @@ import Card from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import Badge, { CustomBadge } from "@/components/ui/badge";
 import Modal from "@/components/ui/modal";
-import { Plus, Edit2, Trash2, Package } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import ProductForm from "@/components/admin/product-form";
+
+const ITEMS_PER_PAGE = 10;
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -84,8 +87,14 @@ export default function ProductsPage() {
   const handleFormSuccess = () => {
     setShowModal(false);
     setEditingProduct(null);
+    setCurrentPage(1);
     fetchProducts();
   };
+
+  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedProducts = products.slice(startIndex, endIndex);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -130,7 +139,7 @@ export default function ProductsPage() {
             </Card>
           </div>
         ) : (
-          products.map((product, index) => (
+          paginatedProducts.map((product, index) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 20 }}
@@ -202,6 +211,45 @@ export default function ProductsPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-12 flex items-center justify-center gap-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                  currentPage === page
+                    ? "bg-gradient-to-r from-primary to-secondary text-white"
+                    : "border border-gray-200 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="p-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Next page"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {/* Product Form Modal */}
       <Modal
