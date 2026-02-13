@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { BRAND_NAME } from "@/lib/constants";
 import { LayoutDashboard, ShoppingBag, LogOut, Menu, X, Package } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -36,6 +37,13 @@ export default function AdminSidebar() {
 
   const isActive = (href: string) => {
     if (pathname === href) return true;
+    // Match Orders for both /all-orders and /orders routes
+    if (href === "/admin/dashboard/all-orders") {
+      return (
+        pathname.startsWith(href + "/") ||
+        pathname.startsWith("/admin/dashboard/orders/")
+      );
+    }
     // Only match sub-pages for non-dashboard links
     if (href !== "/admin/dashboard" && pathname.startsWith(href + "/")) {
       return true;
@@ -46,11 +54,15 @@ export default function AdminSidebar() {
   const SidebarContent = () => (
     <div className="h-full flex flex-col bg-white border-r border-gray-200">
       {/* Brand Header */}
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-          {BRAND_NAME}
-        </h1>
-        <p className="text-sm text-gray-500 font-medium mt-1">Admin Panel</p>
+      <div className="p-4 border-b border-gray-200 flex items-center justify-center">
+        <Image
+          src="/caramelt-logo.png"
+          alt="Caramelt Logo"
+          width={120}
+          height={50}
+          priority
+          className="h-12 w-auto"
+        />
       </div>
 
       {/* Navigation */}

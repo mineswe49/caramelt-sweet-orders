@@ -4,9 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 // PATCH - Update order item (quantity or price)
 export async function PATCH(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const { orderId } = await params;
     const body = await request.json();
     const { itemId, quantity, unitPrice } = body;
 
@@ -24,35 +25,45 @@ export async function PATCH(
       .from("order_items")
       .select("*")
       .eq("id", itemId)
-      .eq("order_id", params.orderId)
+      .eq("order_id", orderId)
       .single();
 
     if (itemError || !item) {
+      console.error("Item not found:", itemError);
       return NextResponse.json(
         { message: "Order item not found" },
         { status: 404 }
       );
     }
 
-    // Calculate new line total
-    const newQuantity = quantity !== undefined ? quantity : item.quantity;
-    const newUnitPrice = unitPrice !== undefined ? unitPrice : item.unit_price_snapshot;
-    const newLineTotal = newQuantity * newUnitPrice;
+    // Validate quantity and unitPrice
+    if (quantity !== undefined && (quantity < 1 || !Number.isInteger(quantity))) {
+      return NextResponse.json(
+        { message: "Quantity must be a positive integer" },
+        { status: 400 }
+      );
+    }
 
-    // Update the item
+    if (unitPrice !== undefined && (unitPrice < 0 || typeof unitPrice !== "number")) {
+      return NextResponse.json(
+        { message: "Unit price must be a non-negative number" },
+        { status: 400 }
+      );
+    }
+
+    // Update the item (line_total is auto-calculated by the database)
     const { error: updateError } = await supabase
       .from("order_items")
       .update({
-        ...(quantity !== undefined && { quantity: newQuantity }),
-        ...(unitPrice !== undefined && { unit_price_snapshot: newUnitPrice }),
-        line_total: newLineTotal,
+        ...(quantity !== undefined && { quantity }),
+        ...(unitPrice !== undefined && { unit_price_snapshot: unitPrice }),
       })
       .eq("id", itemId);
 
     if (updateError) {
       console.error("Error updating order item:", updateError);
       return NextResponse.json(
-        { message: "Failed to update order item" },
+        { message: "Failed to update order item", error: updateError.message },
         { status: 500 }
       );
     }
@@ -64,7 +75,7 @@ export async function PATCH(
   } catch (error) {
     console.error("Error updating order item:", error);
     return NextResponse.json(
-      { message: "Failed to update order item" },
+      { message: "Failed to update order item", error: String(error) },
       { status: 500 }
     );
   }
@@ -73,9 +84,10 @@ export async function PATCH(
 // DELETE - Remove order item
 export async function DELETE(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const { orderId } = await params;
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get("itemId");
 
@@ -93,7 +105,7 @@ export async function DELETE(
       .from("order_items")
       .select("*")
       .eq("id", itemId)
-      .eq("order_id", params.orderId)
+      .eq("order_id", orderId)
       .single();
 
     if (itemError || !item) {

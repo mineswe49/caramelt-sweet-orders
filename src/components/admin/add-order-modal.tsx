@@ -116,18 +116,84 @@ export default function AddOrderModal({
 
     setSubmitting(true);
     try {
-      // Generate order code
+      // ============================================
+      // STEP 1: Create or update customer (MANDATORY)
+      // ============================================
+      console.log("Creating/updating customer...");
+
+      const { data: existingCustomers, error: fetchError } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("email", formData.email)
+        .eq("phone", formData.phone);
+
+      if (fetchError) {
+        throw new Error(`Failed to check customer: ${fetchError.message}`);
+      }
+
+      let customerId: string;
+
+      if (existingCustomers && existingCustomers.length > 0) {
+        // Update existing customer
+        customerId = existingCustomers[0].id;
+        console.log(`Updating existing customer: ${customerId}`);
+
+        const { error: updateError } = await supabase
+          .from("customers")
+          .update({
+            full_name: formData.full_name,
+            whatsapp: formData.whatsapp || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", customerId);
+
+        if (updateError) {
+          throw new Error(`Failed to update customer: ${updateError.message}`);
+        }
+      } else {
+        // Create new customer
+        console.log("Creating new customer...");
+
+        const { data: newCustomer, error: customerError } = await supabase
+          .from("customers")
+          .insert({
+            full_name: formData.full_name,
+            email: formData.email,
+            phone: formData.phone,
+            whatsapp: formData.whatsapp || null,
+          })
+          .select()
+          .single();
+
+        if (customerError) {
+          throw new Error(`Failed to create customer: ${customerError.message}`);
+        }
+
+        if (!newCustomer || !newCustomer.id) {
+          throw new Error("Customer was created but no ID was returned");
+        }
+
+        customerId = newCustomer.id;
+        console.log(`Customer created successfully: ${customerId}`);
+      }
+
+      // Validate customer ID exists before proceeding
+      if (!customerId) {
+        throw new Error("Customer ID is missing - cannot create order");
+      }
+
+      // ============================================
+      // STEP 2: Create order (only if customer succeeded)
+      // ============================================
+      console.log("Creating order with customer_id:", customerId);
+
       const orderCode = `ORD-${Date.now()}`;
 
-      // Create order
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
           order_code: orderCode,
-          full_name: formData.full_name,
-          email: formData.email,
-          phone: formData.phone,
-          whatsapp: formData.whatsapp || null,
+          user_id: customerId,
           requested_prep_date: formData.requested_prep_date,
           payment_method: formData.payment_method,
           notes: formData.notes || null,
@@ -137,30 +203,51 @@ export default function AddOrderModal({
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        throw new Error(`Failed to create order: ${orderError.message}`);
+      }
 
-      // Create order items
+      if (!orderData || !orderData.id) {
+        throw new Error("Order was created but no ID was returned");
+      }
+
+      console.log(`Order created successfully: ${orderData.id}`);
+
+      // ============================================
+      // STEP 3: Create order items
+      // ============================================
+      console.log(`Creating ${items.length} order items...`);
+
       const orderItems = items.map((item) => ({
         order_id: orderData.id,
         product_id: item.product_id,
         product_name_snapshot: item.product_name,
         unit_price_snapshot: item.unit_price,
         quantity: item.quantity,
-        line_total: (item.unit_price || 0) * item.quantity,
       }));
 
       const { error: itemsError } = await supabase
         .from("order_items")
         .insert(orderItems);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        throw new Error(`Failed to add items to order: ${itemsError.message}`);
+      }
+
+      console.log("Order items created successfully");
 
       toast.success("Order created successfully!");
       onOrderAdded();
       resetForm();
     } catch (error) {
       console.error("Error creating order:", error);
-      toast.error("Failed to create order");
+
+      // Show detailed error message to user
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "Failed to create order";
+
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }

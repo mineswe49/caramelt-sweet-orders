@@ -70,6 +70,9 @@ export default function AdminDashboardPage() {
     { label: "Pending", value: "PENDING_ADMIN_ACCEPTANCE" },
     { label: "Accepted", value: "ACCEPTED" },
     { label: "Paid", value: "PAID_CONFIRMED" },
+    { label: "Delivered", value: "DELIVERED" },
+    { label: "Not Delivered", value: "NOT_DELIVERED" },
+    { label: "Returned", value: "RETURNED" },
     { label: "Cancelled", value: "CANCELLED" },
   ];
 

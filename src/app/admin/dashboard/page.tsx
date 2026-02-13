@@ -55,13 +55,22 @@ export default function AdminDashboard() {
 
       const orders = (allOrders || []) as OrderWithItems[];
 
-      // Calculate stats
-      const totalRevenue = orders.reduce((sum, order) => {
-        return (
-          sum +
-          order.order_items.reduce((itemSum, item) => itemSum + item.line_total, 0)
-        );
-      }, 0);
+      // Calculate stats - count all paid/completed orders including delivered statuses
+      const totalRevenue = orders
+        .filter(
+          (order) =>
+            order.status === "PAID_CONFIRMED" ||
+            order.status === "ACCEPTED" ||
+            order.status === "DELIVERED" ||
+            order.status === "NOT_DELIVERED" ||
+            order.status === "RETURNED"
+        )
+        .reduce((sum, order) => {
+          return (
+            sum +
+            order.order_items.reduce((itemSum, item) => itemSum + item.line_total, 0)
+          );
+        }, 0);
 
       const pendingOrders = orders.filter(
         (o) => o.status === "PENDING_ADMIN_ACCEPTANCE"
@@ -70,7 +79,7 @@ export default function AdminDashboard() {
       // Get latest 10 orders
       const latest10 = orders.slice(0, 10);
 
-      // Get upcoming deliveries (next 2 weeks from today)
+      // Get upcoming deliveries (next 2 weeks from today) - orders that haven't been delivered/returned/cancelled
       const today = new Date();
       const twoWeeksLater = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
 
@@ -79,10 +88,16 @@ export default function AdminDashboard() {
           const prepDate = new Date(
             order.confirmed_prep_date || order.requested_prep_date
           );
+          const isNotFinal =
+            order.status !== "CANCELLED" &&
+            order.status !== "DELIVERED" &&
+            order.status !== "NOT_DELIVERED" &&
+            order.status !== "RETURNED";
+
           return (
+            isNotFinal &&
             prepDate >= today &&
-            prepDate <= twoWeeksLater &&
-            order.status !== "CANCELLED"
+            prepDate <= twoWeeksLater
           );
         })
         .sort(
@@ -225,94 +240,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Latest Orders */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="lg:col-span-2"
-        >
-          <Card className="overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Latest Orders
-              </h2>
-              <button
-                onClick={() => router.push("/admin/dashboard/all-orders")}
-                className="flex items-center gap-2 text-primary font-medium hover:gap-3 transition-all"
-              >
-                View All
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="p-8 text-center">
-                <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-gray-600">Loading orders...</p>
-              </div>
-            ) : latestOrders.length === 0 ? (
-              <div className="p-8 text-center">
-                <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-600">No orders yet</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
-                        Order
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
-                        Customer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
-                        Total
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {latestOrders.map((order, index) => (
-                      <motion.tr
-                        key={order.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.4 + index * 0.05 }}
-                        onClick={() =>
-                          router.push(`/admin/dashboard/orders/${order.id}`)
-                        }
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-mono font-semibold text-primary">
-                            {order.order_code}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {order.full_name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">
-                          {formatPrice(calculateTotal(order.order_items))}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge status={order.status} />
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-        </motion.div>
-
+      <div className="space-y-8">
         {/* Upcoming Deliveries - Most Important */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -399,6 +327,92 @@ export default function AdminDashboard() {
                     </motion.div>
                   );
                 })}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
+        {/* Latest Orders */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card className="overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Latest Orders
+              </h2>
+              <button
+                onClick={() => router.push("/admin/dashboard/all-orders")}
+                className="flex items-center gap-2 text-primary font-medium hover:gap-3 transition-all"
+              >
+                View All
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="p-8 text-center">
+                <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-gray-600">Loading orders...</p>
+              </div>
+            ) : latestOrders.length === 0 ? (
+              <div className="p-8 text-center">
+                <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-600">No orders yet</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                        Order
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                        Customer
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                        Total
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {latestOrders.map((order, index) => (
+                      <motion.tr
+                        key={order.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.4 + index * 0.05 }}
+                        onClick={() =>
+                          router.push(`/admin/dashboard/orders/${order.id}`)
+                        }
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="font-mono font-semibold text-primary">
+                            {order.order_code}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {order.full_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">
+                          {formatPrice(calculateTotal(order.order_items))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge status={order.status} />
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </Card>

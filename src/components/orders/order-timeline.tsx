@@ -30,11 +30,25 @@ const TIMELINE_STEPS: TimelineStep[] = [
     label: "Payment Confirmed",
     order: 3,
   },
+  {
+    id: "DELIVERED",
+    label: "Delivered",
+    order: 4,
+  },
 ];
 
 export default function OrderTimeline({ currentStatus }: OrderTimelineProps) {
+  // Map delivery statuses to the final "Delivered" step
+  const getMappedStatus = (status: OrderStatus): OrderStatus => {
+    if (status === "NOT_DELIVERED" || status === "RETURNED") {
+      return "DELIVERED";
+    }
+    return status;
+  };
+
+  const mappedStatus = getMappedStatus(currentStatus);
   const currentStep =
-    TIMELINE_STEPS.find((step) => step.id === currentStatus)?.order || 1;
+    TIMELINE_STEPS.find((step) => step.id === mappedStatus)?.order || 1;
 
   const getStepStatus = (stepOrder: number) => {
     if (stepOrder < currentStep) return "completed";

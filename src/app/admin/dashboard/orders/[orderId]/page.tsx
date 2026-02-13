@@ -45,6 +45,7 @@ export default function OrderDetailPage() {
   const [showItemEditModal, setShowItemEditModal] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [showAcceptModal, setShowAcceptModal] = useState(false);
 
   const {
@@ -105,20 +106,30 @@ export default function OrderDetailPage() {
         .from("orders")
         .select(`
           *,
-          order_items (*)
+          order_items (*),
+          customers!user_id (full_name, email, phone, whatsapp)
         `)
         .eq("id", orderId)
         .single();
 
       if (error) throw error;
-      setOrder(data);
 
-      // Set default values for payment modal
+      // Flatten customer data for backward compatibility
+      const orderWithCustomer = {
+        ...data,
+        full_name: data.customers?.full_name || "",
+        email: data.customers?.email || "",
+        phone: data.customers?.phone || "",
+        whatsapp: data.customers?.whatsapp || null,
+      };
+
+      setOrder(orderWithCustomer);
+
+      // Set default values for accept modal
       if (data) {
         const defaultDate = data.requested_prep_date || format(addDays(startOfDay(new Date()), MIN_PREP_DAYS), "yyyy-MM-dd");
-        reset({
+        resetAccept({
           confirmedPrepDate: defaultDate,
-          adminComment: "",
         });
       }
     } catch (error) {
@@ -149,6 +160,7 @@ export default function OrderDetailPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          updateCustomer: true,
           fullName: data.fullName,
           email: data.email,
           phone: data.phone,
@@ -157,14 +169,19 @@ export default function OrderDetailPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to update customer");
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || "Failed to update customer");
+      }
 
       toast.success("Customer details updated successfully");
       setShowCustomerEditModal(false);
       fetchOrder();
     } catch (error) {
       console.error("Error updating customer:", error);
-      toast.error("Failed to update customer details");
+      const message = error instanceof Error ? error.message : "Failed to update customer details";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -198,7 +215,11 @@ export default function OrderDetailPage() {
         }
       );
 
-      if (!response.ok) throw new Error("Failed to update item");
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || "Failed to update item");
+      }
 
       toast.success("Order item updated successfully");
       setShowItemEditModal(false);
@@ -206,7 +227,8 @@ export default function OrderDetailPage() {
       fetchOrder();
     } catch (error) {
       console.error("Error updating item:", error);
-      toast.error("Failed to update order item");
+      const message = error instanceof Error ? error.message : "Failed to update order item";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -222,13 +244,18 @@ export default function OrderDetailPage() {
         { method: "DELETE" }
       );
 
-      if (!response.ok) throw new Error("Failed to delete item");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to delete item");
+      }
 
       toast.success("Order item removed successfully");
       fetchOrder();
     } catch (error) {
       console.error("Error deleting item:", error);
-      toast.error("Failed to remove order item");
+      const message = error instanceof Error ? error.message : "Failed to remove order item";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -239,16 +266,81 @@ export default function OrderDetailPage() {
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cancelReason: cancelReason.trim() || null,
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to cancel order");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to cancel order");
+      }
 
       toast.success("Order cancelled successfully");
       setShowCancelModal(false);
+      setCancelReason("");
       fetchOrder();
     } catch (error) {
       console.error("Error cancelling order:", error);
-      toast.error("Failed to cancel order");
+      const message = error instanceof Error ? error.message : "Failed to cancel order";
+      toast.error(message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUncancelOrder = async () => {
+    setActionLoading(true);
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uncancel: true,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to restore order");
+      }
+
+      toast.success("Order restored successfully");
+      fetchOrder();
+    } catch (error) {
+      console.error("Error restoring order:", error);
+      const message = error instanceof Error ? error.message : "Failed to restore order";
+      toast.error(message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateDeliveryStatus = async (newStatus: "DELIVERED" | "NOT_DELIVERED" | "RETURNED") => {
+    setActionLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: newStatus })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      const statusLabels: Record<string, string> = {
+        DELIVERED: "marked as delivered",
+        NOT_DELIVERED: "marked as not delivered",
+        RETURNED: "marked as returned",
+      };
+
+      toast.success(`Order ${statusLabels[newStatus]}`);
+      fetchOrder();
+    } catch (error) {
+      console.error("Error updating delivery status:", error);
+      toast.error("Failed to update delivery status");
     } finally {
       setActionLoading(false);
     }
@@ -612,13 +704,97 @@ export default function OrderDetailPage() {
                         <p className="text-sm text-blue-800">{order.admin_comment}</p>
                       </div>
                     )}
+
+                    {/* Delivery Status Actions */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <p className="text-xs font-semibold text-gray-700 mb-3 uppercase">Delivery Status</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleUpdateDeliveryStatus("DELIVERED")}
+                          disabled={actionLoading}
+                          className="flex-1 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition-all disabled:opacity-50"
+                        >
+                          ✓ Delivered
+                        </button>
+                        <button
+                          onClick={() => handleUpdateDeliveryStatus("NOT_DELIVERED")}
+                          disabled={actionLoading}
+                          className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-all disabled:opacity-50"
+                        >
+                          ✗ Not Delivered
+                        </button>
+                        <button
+                          onClick={() => handleUpdateDeliveryStatus("RETURNED")}
+                          disabled={actionLoading}
+                          className="flex-1 px-3 py-2 rounded-lg bg-red-400 hover:bg-red-500 text-white font-medium text-sm transition-all disabled:opacity-50"
+                        >
+                          ↩ Returned
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {(order.status === "DELIVERED" || order.status === "NOT_DELIVERED" || order.status === "RETURNED") && (
+                  <div className="space-y-3">
+                    {order.status === "DELIVERED" && (
+                      <CustomBadge variant="success" className="w-full justify-center text-sm py-2">
+                        ✓ Order Delivered
+                      </CustomBadge>
+                    )}
+                    {order.status === "NOT_DELIVERED" && (
+                      <CustomBadge className="w-full justify-center text-sm py-2 bg-red-100 text-red-700">
+                        ✗ Not Delivered
+                      </CustomBadge>
+                    )}
+                    {order.status === "RETURNED" && (
+                      <CustomBadge className="w-full justify-center text-sm py-2 bg-red-100 text-red-700">
+                        ↩ Order Returned
+                      </CustomBadge>
+                    )}
+
+                    {/* Change Delivery Status Dropdown */}
+                    <div className="pt-3 border-t border-gray-200">
+                      <label className="block text-xs font-semibold text-gray-700 mb-2">
+                        Change Status
+                      </label>
+                      <select
+                        value={order.status}
+                        onChange={(e) => {
+                          const newStatus = e.target.value as "DELIVERED" | "NOT_DELIVERED" | "RETURNED";
+                          handleUpdateDeliveryStatus(newStatus);
+                        }}
+                        disabled={actionLoading}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 cursor-pointer"
+                      >
+                        <option value="DELIVERED">✓ Delivered</option>
+                        <option value="NOT_DELIVERED">✗ Not Delivered</option>
+                        <option value="RETURNED">↩ Returned</option>
+                      </select>
+                    </div>
                   </div>
                 )}
 
                 {order.status === "CANCELLED" && (
-                  <CustomBadge variant="error" className="w-full justify-center text-sm py-2">
-                    Order Cancelled
-                  </CustomBadge>
+                  <div className="space-y-3">
+                    <CustomBadge variant="error" className="w-full justify-center text-sm py-2">
+                      Order Cancelled
+                    </CustomBadge>
+                    {order.admin_comment && (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                        <p className="text-xs font-semibold text-red-900 mb-1">Cancellation Reason</p>
+                        <p className="text-sm text-red-800">{order.admin_comment}</p>
+                      </div>
+                    )}
+                    <Button
+                      onClick={handleUncancelOrder}
+                      loading={actionLoading}
+                      className="w-full text-sm"
+                      variant="secondary"
+                    >
+                      Restore Order
+                    </Button>
+                  </div>
                 )}
 
                 {order.status !== "CANCELLED" && (
@@ -846,7 +1022,10 @@ export default function OrderDetailPage() {
       {/* Cancel Order Modal */}
       <Modal
         isOpen={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
+        onClose={() => {
+          setShowCancelModal(false);
+          setCancelReason("");
+        }}
         title="Cancel Order"
       >
         <div className="space-y-4">
@@ -860,11 +1039,27 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Cancellation Reason (Optional)
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Enter reason for cancellation (e.g., Customer requested, Out of stock, etc.)"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            />
+          </div>
+
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setShowCancelModal(false)}
+              onClick={() => {
+                setShowCancelModal(false);
+                setCancelReason("");
+              }}
               className="flex-1"
             >
               Keep Order

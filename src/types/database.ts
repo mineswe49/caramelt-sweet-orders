@@ -2,6 +2,9 @@ export type OrderStatus =
   | "PENDING_ADMIN_ACCEPTANCE"
   | "ACCEPTED"
   | "PAID_CONFIRMED"
+  | "DELIVERED"
+  | "NOT_DELIVERED"
+  | "RETURNED"
   | "CANCELLED";
 
 export interface Product {
