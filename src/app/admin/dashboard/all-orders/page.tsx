@@ -31,7 +31,8 @@ export default function AdminDashboardPage() {
         .from("orders")
         .select(`
           *,
-          order_items (*)
+          order_items (*),
+          customers (full_name, email, phone, whatsapp)
         `)
         .order("created_at", { ascending: false });
 
@@ -43,7 +44,17 @@ export default function AdminDashboardPage() {
       const { data, error } = await query;
 
       if (error) throw error;
-      setOrders(data || []);
+
+      // Flatten customer data into orders for backward compatibility
+      const ordersWithCustomerData = (data || []).map((order: any) => ({
+        ...order,
+        full_name: order.customers?.full_name,
+        email: order.customers?.email,
+        phone: order.customers?.phone,
+        whatsapp: order.customers?.whatsapp,
+      }));
+
+      setOrders(ordersWithCustomerData);
     } catch (error) {
       console.error("Error fetching orders:", error);
     } finally {
