@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import { CreditCard, ShoppingBag } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { checkoutFormSchema, checkoutSchema, type CheckoutFormData } from "@/lib/validators/order";
+import { formatPrice } from "@/lib/format";
 import Button from "@/components/ui/button";
 import Input, { Textarea } from "@/components/ui/input";
 import Card from "@/components/ui/card";
@@ -19,9 +20,10 @@ import { useState } from "react";
 
 export default function CheckoutForm() {
   const router = useRouter();
-  const { items, clearCart, closeDrawer } = useCartStore();
+  const { items, clearCart, getSubtotal, closeDrawer } = useCartStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const subtotal = getSubtotal();
   const minDate = format(addDays(startOfDay(new Date()), MIN_PREP_DAYS), "yyyy-MM-dd");
 
   const {
@@ -269,13 +271,22 @@ export default function CheckoutForm() {
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-gray-900 truncate">{item.name}</h4>
                   <p className="text-sm text-gray-600">
-                    Quantity: {item.quantity}
+                    {formatPrice(item.price)} x {item.quantity}
+                  </p>
+                  <p className="text-sm font-bold text-primary mt-1">
+                    {formatPrice(item.price * item.quantity)}
                   </p>
                 </div>
               </div>
             ))}
           </div>
 
+          <div className="border-t pt-4">
+            <div className="flex justify-between items-center text-xl font-bold">
+              <span className="text-gray-900">Subtotal</span>
+              <span className="text-primary">{formatPrice(subtotal)}</span>
+            </div>
+          </div>
         </Card>
       </div>
     </motion.div>

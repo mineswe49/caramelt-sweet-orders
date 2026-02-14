@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { CheckCircle2, Calendar, Package } from "lucide-react";
 import Link from "next/link";
-import { formatDate } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 import OrderTimeline from "@/components/orders/order-timeline";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
@@ -14,6 +14,8 @@ interface OrderSuccessContentProps {
 }
 
 export default function OrderSuccessContent({ order }: OrderSuccessContentProps) {
+  const subtotal = order.order_items.reduce((sum, item) => sum + item.line_total, 0);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -83,11 +85,19 @@ export default function OrderSuccessContent({ order }: OrderSuccessContentProps)
               <div className="flex-1">
                 <h4 className="font-semibold text-gray-900">{item.product_name_snapshot}</h4>
                 <p className="text-sm text-gray-600">
-                  Quantity: {item.quantity}
+                  {formatPrice(item.unit_price_snapshot)} x {item.quantity}
                 </p>
               </div>
+              <p className="font-bold text-primary">{formatPrice(item.line_total)}</p>
             </div>
           ))}
+        </div>
+
+        <div className="border-t pt-4">
+          <div className="flex justify-between items-center text-xl font-bold">
+            <span className="text-gray-900">Total</span>
+            <span className="text-primary">{formatPrice(subtotal)}</span>
+          </div>
         </div>
       </Card>
 
