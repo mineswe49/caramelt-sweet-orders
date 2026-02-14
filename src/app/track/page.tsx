@@ -13,7 +13,7 @@ import Button from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Card from "@/components/ui/card";
 import { trackOrderSchema, type TrackOrderFormData } from "@/lib/validators/order";
-import { formatPrice, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import type { OrderWithItems } from "@/types/database";
 
 export default function TrackOrderPage() {
@@ -60,7 +60,6 @@ export default function TrackOrderPage() {
     }
   };
 
-  const subtotal = order?.order_items.reduce((sum, item) => sum + item.line_total, 0) || 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFBF8]">
@@ -126,19 +125,13 @@ export default function TrackOrderPage() {
               >
                 {/* Order Header */}
                 <Card className="p-6 lg:p-8">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                        Order {order.order_code}
-                      </h2>
-                      <p className="text-gray-600">
-                        Placed on {formatDate(order.created_at)}
-                      </p>
-                    </div>
-                    <div className="text-left md:text-right">
-                      <p className="text-sm text-gray-600 font-medium">Total Amount</p>
-                      <p className="text-2xl font-bold text-primary">{formatPrice(subtotal)}</p>
-                    </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      Order {order.order_code}
+                    </h2>
+                    <p className="text-gray-600">
+                      Placed on {formatDate(order.created_at)}
+                    </p>
                   </div>
 
                   {/* Preparation Dates */}
@@ -190,7 +183,7 @@ export default function TrackOrderPage() {
                 {/* Order Items */}
                 <Card className="p-6 lg:p-8">
                   <h3 className="text-xl font-bold text-gray-900 mb-6">Order Items</h3>
-                  <div className="space-y-4 mb-6">
+                  <div className="space-y-4">
                     {order.order_items.map((item) => (
                       <div key={item.id} className="flex justify-between items-center py-3 border-b">
                         <div className="flex-1">
@@ -198,19 +191,11 @@ export default function TrackOrderPage() {
                             {item.product_name_snapshot}
                           </h4>
                           <p className="text-sm text-gray-600">
-                            {formatPrice(item.unit_price_snapshot)} x {item.quantity}
+                            Quantity: {item.quantity}
                           </p>
                         </div>
-                        <p className="font-bold text-primary">{formatPrice(item.line_total)}</p>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between items-center text-xl font-bold">
-                      <span className="text-gray-900">Total</span>
-                      <span className="text-primary">{formatPrice(subtotal)}</span>
-                    </div>
                   </div>
                 </Card>
 

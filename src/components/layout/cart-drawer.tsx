@@ -5,7 +5,6 @@ import { ShoppingBag, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCartStore } from "@/stores/cart-store";
-import { formatPrice } from "@/lib/format";
 import QuantitySelector from "@/components/ui/quantity-selector";
 import Button from "@/components/ui/button";
 
@@ -16,10 +15,7 @@ export function CartDrawer() {
     closeDrawer,
     removeItem,
     updateQuantity,
-    getSubtotal,
   } = useCartStore();
-
-  const subtotal = getSubtotal();
 
   return (
     <AnimatePresence>
@@ -117,13 +113,6 @@ export function CartDrawer() {
                         <h4 className="font-semibold text-gray-900 truncate">
                           {item.name}
                         </h4>
-                        <p className="text-sm text-primary font-bold mt-1">
-                          {formatPrice(item.price)}
-                          <span className="text-gray-500 font-normal">
-                            {" "}
-                            / each
-                          </span>
-                        </p>
 
                         {/* Quantity Selector & Remove */}
                         <div className="flex items-center justify-between mt-3">
@@ -144,11 +133,6 @@ export function CartDrawer() {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-
-                        {/* Line Total */}
-                        <p className="text-right text-lg font-bold text-gray-900 mt-2">
-                          {formatPrice(item.price * item.quantity)}
-                        </p>
                       </div>
                     </motion.div>
                   ))}
@@ -156,17 +140,9 @@ export function CartDrawer() {
               )}
             </div>
 
-            {/* Footer with Subtotal and Checkout */}
+            {/* Footer with Checkout */}
             {items.length > 0 && (
               <div className="border-t border-neutral/20 p-6 space-y-4">
-                {/* Subtotal */}
-                <div className="flex items-center justify-between text-lg">
-                  <span className="font-semibold text-gray-700">Subtotal</span>
-                  <span className="font-bold text-2xl text-primary">
-                    {formatPrice(subtotal)}
-                  </span>
-                </div>
-
                 {/* Checkout Button */}
                 <Link href="/checkout" onClick={closeDrawer} className="block">
                   <Button variant="primary" size="lg" className="w-full">

@@ -5,7 +5,6 @@ import { ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Product } from "@/types/database";
-import { formatPrice } from "@/lib/format";
 import { useCartStore } from "@/stores/cart-store";
 import Button from "@/components/ui/button";
 
@@ -68,13 +67,6 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
         <p className="text-sm text-gray-600 line-clamp-2 min-h-[2.5rem]">
           {product.description || "A delicious handcrafted dessert."}
         </p>
-
-        {/* Price */}
-        <div className="pt-2">
-          <p className="text-2xl font-bold text-primary">
-            {formatPrice(product.price)}
-          </p>
-        </div>
 
         {/* Add to Cart Button */}
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
